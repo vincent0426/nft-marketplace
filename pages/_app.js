@@ -13,7 +13,6 @@ const MyApp = ({ Component, pageProps }) => {
         router.reload(window.location.pathname);
     };
     useEffect(() => {
-        console.log(pageProps);
         typeof document !== undefined
             ? require("bootstrap/dist/js/bootstrap")
             : null;
@@ -30,7 +29,7 @@ const MyApp = ({ Component, pageProps }) => {
                 });
             }
         };
-        console.log(pageProps);
+
         getData();
     }, [pageProps, router]);
     pageProps = { ...pageProps, account };

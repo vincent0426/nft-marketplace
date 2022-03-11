@@ -1,83 +1,55 @@
-const { expect } = require("chai");
-const { ethers } = require("hardhat");
+/* test/sample-test.js */
+describe("NFTMarket", function () {
+    it("Should create and execute market sales", async function () {
+        /* deploy the marketplace */
+        const NFTMarket = await ethers.getContractFactory("NFTMarket");
+        const nftMarket = await NFTMarket.deploy();
+        await nftMarket.deployed();
 
-let market;
-let marketContractAddress;
-let listingPrice;
-let nft;
-let nftContractAddress;
+        let listingPrice = await nftMarket.getListingPrice();
+        listingPrice = listingPrice.toString();
 
-let owner, buyer;
+        const auctionPrice = ethers.utils.parseUnits("1", "ether");
 
-before(async () => {
-    [owner, buyer] = await ethers.getSigners();
+        /* create two tokens */
+        await nftMarket.createToken(
+            "https://www.mytokenlocation.com",
+            auctionPrice,
+            { value: listingPrice }
+        );
+        await nftMarket.createToken(
+            "https://www.mytokenlocation2.com",
+            auctionPrice,
+            { value: listingPrice }
+        );
 
-    listingPrice = ethers.utils.parseEther("1");
-    const Market = await ethers.getContractFactory("NFTMarket");
-    market = await Market.deploy(listingPrice);
-    await market.deployed();
-    marketContractAddress = market.address;
+        const [_, buyerAddress] = await ethers.getSigners();
 
-    const NFT = await ethers.getContractFactory("NFT");
-    nft = await NFT.deploy(marketContractAddress);
-    await nft.deployed();
-    nftContractAddress = nft.address;
-});
+        /* execute sale of token to another user */
+        await nftMarket
+            .connect(buyerAddress)
+            .createMarketSale(1, { value: auctionPrice });
 
-describe("NFTMarket", () => {
-    it("Should get listingPrice", async () => {
-        listingPrice = await market.getListingPrice();
-        expect(listingPrice).to.equal(ethers.utils.parseEther("1"));
-    });
+        /* resell a token */
+        await nftMarket
+            .connect(buyerAddress)
+            .resellToken(1, auctionPrice, { value: listingPrice });
 
-    it("Should be reverted since price < 0", async () => {
-        await expect(
-            market.listNFT(nftContractAddress, 0, "vincent", "testing", 0)
-        ).to.be.revertedWith("Selling price must be at least 1 wei");
-    });
-
-    it("Should be reverted since not sending listing price", async () => {
-        await nft.createNFT("Test");
-
-        await expect(
-            market.listNFT(nftContractAddress, 0, "vincent", "testing", 1, {
-                value: listingPrice.sub(1),
+        /* query for and return the unsold items */
+        items = await nftMarket.fetchMarketItems();
+        items = await Promise.all(
+            items.map(async (i) => {
+                const tokenUri = await nftMarket.tokenURI(i.tokenId);
+                let item = {
+                    price: i.price.toString(),
+                    tokenId: i.tokenId.toString(),
+                    seller: i.seller,
+                    owner: i.owner,
+                    tokenUri,
+                };
+                return item;
             })
-        ).to.be.revertedWith("Must have enough listing price");
-    });
-
-    it("Should list NFT", async () => {
-        await expect(
-            market.listNFT(
-                nftContractAddress,
-                0,
-                "vincent",
-                "testing",
-                ethers.utils.parseEther("1"),
-                {
-                    value: listingPrice,
-                }
-            )
-        ).to.emit(market, "MarketItemCreated");
-
-        listItem = await market.idToMarketItem(0);
-        expect(listItem.price).to.equal(ethers.utils.parseEther("1"));
-    });
-
-    it("Should not transfer NFT since money isn't enough", async () => {
-        await expect(
-            market.connect(buyer).buyNFT(nftContractAddress, 0, {
-                value: ethers.utils.parseEther("1").sub(1),
-            })
-        ).to.be.revertedWith("Plz have enough money!");
-    });
-
-    it("Should transfer NFT", async () => {
-        await market.connect(buyer).buyNFT(nftContractAddress, 0, {
-            value: ethers.utils.parseEther("1"),
-        });
-
-        transferItem = await market.idToMarketItem(0);
-        expect(transferItem.owner).to.equal(buyer.address);
+        );
+        console.log("items: ", items);
     });
 });

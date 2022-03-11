@@ -1,77 +1,43 @@
 import React, { useState, useEffect } from "react";
 import { useRouter } from "next/router";
-import { ethers } from "ethers";
+import "bootstrap-icons/font/bootstrap-icons.css";
+import axios from "axios";
 import Image from "next/image";
 
-import NFT from "../../ethereum/nft";
 import NFTMarket from "../../ethereum/nftMarket";
-import nftAddress from "../../artifacts/contracts/NFT.sol/nft-address.json";
 
 const App = () => {
     const router = useRouter();
-    const { id, itemId } = router.query;
+    const { tokenId } = router.query;
     const [loading, setLoading] = useState(false);
-    const [tokenId, setTokenId] = useState("");
     const [name, setName] = useState("");
-    const [description, setDescription] = useState("");
     const [price, setPrice] = useState("");
-    const [owner, setOwner] = useState("");
+    const [imageUrl, setImageUrl] = useState("");
+
     useEffect(() => {
         const getData = async () => {
-            if (itemId) {
-                const {
-                    nftContract,
-                    tokenId,
-                    name,
-                    description,
-                    price,
-                    owner,
-                } = await NFTMarket.idToMarketItem(itemId);
-                setTokenId(tokenId);
+            if (tokenId) {
+                let tokenURI = await NFTMarket.tokenURI(tokenId);
+                const meta = await axios.get(tokenURI);
+                const { name, price, imageUrl } = meta.data;
                 setName(name);
-                setDescription(description);
-                setPrice(ethers.utils.formatEther(price.toString()));
-                setOwner(owner);
-                console.log(
-                    nftContract,
-                    tokenId.toString(),
-                    name,
-                    description,
-                    price.toString()
-                );
+                setPrice(price);
+                setImageUrl(imageUrl);
             }
         };
 
         getData();
-    }, [itemId, id]);
+    }, [tokenId]);
 
     const onFormSubmit = async (e) => {
         e.preventDefault();
-        const url = `https://ipfs.infura.io/ipfs/${id}`;
-        console.log(url);
-        const transaction = await NFT.createNFT(url);
-        console.log(transaction);
-        const tx = await transaction.wait();
-
-        const event = tx.events[0];
-        const value = event.args[2];
-        const tokenId = value.toNumber();
-
+        console.log(price);
         const listingPrice = await NFTMarket.getListingPrice();
-        listingPrice = listingPrice.toString();
-
-        transaction = await NFTMarket.listNFT(
-            nftAddress.Address,
-            tokenId,
-            name,
-            description,
-            price,
-            {
-                value: listingPrice,
-            }
-        );
-        tx = await transaction.wait();
-        console.log(tx);
+        await NFTMarket.resellToken(tokenId, price, {
+            value: listingPrice,
+        });
+        // console.log(tx);
+        // await tx.wait();
         router.push("/");
     };
     return (
@@ -80,15 +46,11 @@ const App = () => {
                 <div className="col"></div>
                 <div className="col-6">
                     <div>
-                        <h1>{owner}</h1>
                         <h3 style={{ fontWeight: "900" }}>Sell Item</h3>
                         <div className="mb-3" style={{ width: "50%" }}>
-                            {id ? (
+                            {imageUrl ? (
                                 <Image
-                                    src={`https://ipfs.infura.io/ipfs/${id.slice(
-                                        0,
-                                        -1
-                                    )}`}
+                                    src={imageUrl}
                                     alt="pic"
                                     width="100%"
                                     height="100%"
@@ -113,34 +75,32 @@ const App = () => {
                                     disabled
                                 />
                             </div>
-                            <label htmlFor="description" className="form-label">
-                                Description
-                            </label>
-                            <div className="mb-3">
-                                <textarea
-                                    style={{ width: "100%" }}
-                                    id="description"
-                                    placeholder="Item Description"
-                                    className="border rounded p-2"
-                                    defaultValue={description}
-                                    disabled
-                                />
-                            </div>
                             <label htmlFor="price" className="form-label">
                                 Price
                             </label>
-                            <div className="mb-5">
+                            <i
+                                className="bi bi-asterisk"
+                                style={{
+                                    color: "red",
+                                    fontSize: "10px",
+                                    position: "relative",
+                                    left: 2,
+                                    bottom: 5,
+                                }}></i>
+                            <div className="input-group mb-3">
                                 <input
                                     id="price"
                                     type="number"
-                                    style={{ width: "100%" }}
-                                    placeholder="Price in ETH"
-                                    className="border rounded p-2"
+                                    defaultValue={0}
+                                    className="form-control"
+                                    required
                                     onChange={(e) => {
                                         setPrice(e.target.value);
                                     }}
                                 />
+                                <span className="input-group-text">ETH</span>
                             </div>
+
                             <button
                                 type="submit"
                                 className="btn"

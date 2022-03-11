@@ -2,17 +2,9 @@ import React, { useState, useEffect } from "react";
 import Image from "next/image";
 import { useRouter } from "next/router";
 
-const Gallery = ({
-    title,
-    ids,
-    names,
-    descriptions,
-    prices,
-    imageUrls,
-    cids,
-    sellers,
-}) => {
+const Gallery = ({ title, uris, tokenIds, names, sellers, owners, prices }) => {
     const [account, setAccount] = useState("");
+
     useEffect(() => {
         const getData = async () => {
             if (typeof window.ethereum !== "undefined") {
@@ -28,7 +20,7 @@ const Gallery = ({
         };
 
         getData();
-    }, [ids]);
+    });
 
     const router = useRouter();
     const renderedNFT = (i) => {
@@ -39,10 +31,7 @@ const Gallery = ({
                     style={{ height: "350px", cursor: "pointer" }}
                     onClick={() => {
                         router.push({
-                            pathname: `/${cids[i]}`,
-                            query: {
-                                itemId: ids[i],
-                            },
+                            pathname: `/${tokenIds[i]}`,
                         });
                     }}
                     onMouseOut={(e) => {
@@ -72,9 +61,9 @@ const Gallery = ({
                     ) : (
                         ""
                     )}
-                    {imageUrls[0] ? (
+                    {uris[0] ? (
                         <Image
-                            src={`${imageUrls[i]}`}
+                            src={`${uris[i]}`}
                             width="100%"
                             height="100%"
                             layout="responsive"
@@ -87,7 +76,6 @@ const Gallery = ({
                     )}
 
                     <div className="card-body border-top">
-                        <h5 className="card-title">{names[i]}</h5>
                         <div className="d-flex float-end align-items-center">
                             <Image
                                 src="/../public/img/eth.png"
@@ -98,7 +86,7 @@ const Gallery = ({
                             />
                             {prices[i]}
                         </div>
-                        <p className="card-text">{descriptions[i]}</p>
+                        <div className="d-flex">{names[i]}</div>
                     </div>
                 </div>
             </div>
@@ -106,7 +94,7 @@ const Gallery = ({
     };
     const renderedNFTs = () => {
         const nfts = [];
-        for (let i = 0; i < ids.length; i++) {
+        for (let i = 0; i < uris.length; i++) {
             nfts.push(renderedNFT(i));
         }
         return nfts;
@@ -117,12 +105,18 @@ const Gallery = ({
                 {title}
             </h1>
 
-            {ids[0] ? (
+            {uris[0] ? (
                 <div className="row justify-content-start">
                     {renderedNFTs()}
                 </div>
             ) : (
-                <div>No items</div>
+                <div
+                    className="d-flex justify-content-center align-items-center"
+                    style={{ minHeight: "100vh" }}>
+                    <div className="spinner-border" role="status">
+                        <span className="visually-hidden">Loading...</span>
+                    </div>
+                </div>
             )}
         </div>
     );

@@ -8,40 +8,35 @@ import "bootstrap-icons/font/bootstrap-icons.css";
 import Image from "next/image";
 import { useRouter } from "next/router";
 
-import NFT from "../ethereum/nft";
 import NFTMarket from "../ethereum/nftMarket";
-import nftAddress from "../artifacts/contracts/NFT.sol/nft-address.json";
 
-const CreateTransfer = () => {
+const CreateItem = () => {
     const [fileUrl, setFileUrl] = useState(null);
     const [formInput, updateFormInput] = useState({
         name: "",
-        description: "",
         price: "",
     });
-    const [loading, setLoading] = useState(false);
-    const inputFile = useRef(null);
+    const [imageLoading, setImageLoading] = useState(false);
+    const [buttonLoading, setButtonLoading] = useState(false);
+    const imageFile = useRef(null);
 
     const router = useRouter();
 
-    useEffect(() => {}, [inputFile]);
+    useEffect(() => {}, [imageFile]);
 
     const onFileClick = async () => {
-        // const tx = await nftMarket.fetchMarketItems();
-        // const item = tx[0];
-        // const tokenURI = await nft.tokenURI(item.tokenId);
-        // console.log(item);
-        // console.log(tokenURI);
-        inputFile.current.click();
+        imageFile.current.click();
     };
 
-    const onChange = (e) => {
+    // const onChange = (e) => {
+    //     const file = e.target.files[0];
+    //     onFileChange(file);
+    // };
+
+    const onChange = async (e) => {
+        setImageLoading(true);
+        /* upload image to IPFS */
         const file = e.target.files[0];
-        onFileChange(file);
-    };
-
-    const onFileChange = async (file) => {
-        setLoading(true);
         try {
             const added = await client.add(file, {
                 progress: (prog) => console.log(`received: ${prog}`),
@@ -51,39 +46,48 @@ const CreateTransfer = () => {
         } catch (error) {
             console.log("Error uploading file: ", error);
         }
-        setLoading(false);
+        setImageLoading(false);
     };
 
-    const createSale = async (url) => {
-        const transaction = await NFT.createNFT(url);
-        const tx = await transaction.wait();
-        const event = tx.events[0];
-        const value = event.args[2];
-        const tokenId = value.toNumber();
+    const uploadToIPFS = async () => {
+        setButtonLoading(true);
+        const { name, price } = formInput;
+        const data = JSON.stringify({
+            name,
+            price,
+            imageUrl: fileUrl,
+        });
+        try {
+            const added = await client.add(data, {
+                progress: (prog) => console.log(`received: ${prog}`),
+            });
+            const url = `https://ipfs.infura.io/ipfs/${added.path}`;
+            return url;
+        } catch (error) {
+            console.log("Error uploading file: ", error);
+        }
+        setButtonLoading(false);
+    };
 
-        const price = ethers.utils.parseUnits(formInput.price, "ether");
-        const listingPrice = await NFTMarket.getListingPrice();
+    const createSale = async () => {
+        let listingPrice = await NFTMarket.getListingPrice();
         listingPrice = listingPrice.toString();
 
-        transaction = await NFTMarket.listNFT(
-            nftAddress.Address,
-            tokenId,
-            formInput.name,
-            formInput.description,
-            price,
-            {
-                value: listingPrice,
-            }
-        );
-        tx = await transaction.wait();
-        console.log(tx);
+        let price = ethers.utils.parseEther(formInput.price);
+        price = price.toString();
+        const url = uploadToIPFS();
+        const transaction = await NFTMarket.createToken(url, price, {
+            value: listingPrice,
+        });
+        await transaction.wait();
+
         router.push("/");
     };
 
     const onFormSubmit = async (e) => {
         e.preventDefault();
 
-        createSale(fileUrl);
+        createSale();
     };
 
     return (
@@ -98,7 +102,7 @@ const CreateTransfer = () => {
                                 <div className="my-3">
                                     <input
                                         style={{ display: "none" }}
-                                        ref={inputFile}
+                                        ref={imageFile}
                                         onChange={onChange}
                                         type="file"
                                         accept="image/*"
@@ -109,7 +113,7 @@ const CreateTransfer = () => {
                                             width: "300px",
                                             height: "250px",
                                         }}>
-                                        {loading ? (
+                                        {imageLoading ? (
                                             <div className="">
                                                 <div
                                                     className="spinner-grow"
@@ -187,29 +191,13 @@ const CreateTransfer = () => {
                                     }
                                 />
                             </div>
-                            <label htmlFor="description" className="form-label">
-                                Description
-                            </label>
-                            <div className="mb-3">
-                                <textarea
-                                    style={{ width: "100%" }}
-                                    id="description"
-                                    placeholder="Item Description"
-                                    className="border rounded p-2"
-                                    onChange={(e) =>
-                                        updateFormInput({
-                                            ...formInput,
-                                            description: e.target.value,
-                                        })
-                                    }
-                                />
-                            </div>
                             <label htmlFor="price" className="form-label">
                                 Price
                             </label>
                             <div className="mb-5">
                                 <input
                                     id="price"
+                                    required
                                     style={{ width: "100%" }}
                                     placeholder="Price in ETH"
                                     className="border rounded p-2"
@@ -229,7 +217,7 @@ const CreateTransfer = () => {
                                     backgroundColor: "#9EB4D1",
                                     color: "white",
                                 }}>
-                                {loading ? (
+                                {buttonLoading ? (
                                     <span className="spinner-border spinner-border-sm"></span>
                                 ) : (
                                     <span>Create</span>
@@ -244,4 +232,4 @@ const CreateTransfer = () => {
     );
 };
 
-export default CreateTransfer;
+export default CreateItem;

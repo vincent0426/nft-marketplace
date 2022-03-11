@@ -1,52 +1,46 @@
 import React, { useState, useEffect } from "react";
-import { ethers } from "ethers";
 
 import Gallery from "../components/Gallery";
 
-import NFT from "../ethereum/nft";
 import NFTMarket from "../ethereum/nftMarket";
+import axios from "axios";
 
 const My = ({ account }) => {
-    const [ids, setIds] = useState([]);
+    const [uris, setUris] = useState([]);
+    const [tokenIds, setTokenIds] = useState([]);
     const [names, setNames] = useState([]);
-    const [descriptions, setDescriptions] = useState([]);
-    const [prices, setPrices] = useState([]);
-    const [imageUrls, setImageUrls] = useState([]);
-    const [cids, setCids] = useState([]);
     const [sellers, setSellers] = useState([]);
+    const [owners, setOwners] = useState([]);
+    const [prices, setPrices] = useState([]);
 
     useEffect(() => {
         const getData = async () => {
-            let imageUrl;
-            let cid;
-            let tempIds = [],
-                tempNames = [],
-                tempDescriptions = [],
-                tempPrices = [],
-                tempImageUrls = [],
-                tempCids = [],
-                tempSellers = [];
-            const marketItems = await NFTMarket.fetchMyItems();
-            for (let marketItem of marketItems) {
-                tempIds.push(marketItem.itemId.toString());
-                tempNames.push(marketItem.name);
-                tempDescriptions.push(marketItem.description);
-                tempPrices.push(
-                    ethers.utils.formatEther(marketItem.price.toString())
-                );
-                imageUrl = await NFT.tokenURI(marketItem.tokenId);
-                tempImageUrls.push(imageUrl);
-                cid = imageUrl.replace("https://ipfs.infura.io/ipfs/", "");
-                tempCids.push(cid);
-                tempSellers.push(marketItem.seller);
+            const marketItems = await NFTMarket.fetchMyNFTs();
+
+            const uris = [];
+            const tokenIds = [];
+            const names = [];
+            const sellers = [];
+            const owners = [];
+            const prices = [];
+            let tokenURI;
+            for (const marketItem of marketItems) {
+                tokenURI = await NFTMarket.tokenURI(marketItem.tokenId);
+                tokenIds.push(marketItem.tokenId.toString());
+                const meta = await axios.get(tokenURI);
+                const { name, price, imageUrl } = meta.data;
+                uris.push(imageUrl);
+                names.push(name);
+                prices.push(price);
+                sellers.push(marketItem.seller);
+                owners.push(marketItem.owner);
             }
-            setIds(tempIds);
-            setNames(tempNames);
-            setDescriptions(tempDescriptions);
-            setPrices(tempPrices);
-            setImageUrls(tempImageUrls);
-            setCids(tempCids);
-            setSellers(tempSellers);
+            setUris(uris);
+            setTokenIds(tokenIds);
+            setNames(names);
+            setSellers(sellers);
+            setOwners(owners);
+            setPrices(prices);
         };
 
         getData();
@@ -55,14 +49,13 @@ const My = ({ account }) => {
     return (
         <div>
             <Gallery
-                title="Gallery"
-                ids={ids}
+                title={"My Gallery"}
+                uris={uris}
+                tokenIds={tokenIds}
                 names={names}
-                descriptions={descriptions}
-                prices={prices}
-                imageUrls={imageUrls}
-                cids={cids}
                 sellers={sellers}
+                owners={owners}
+                prices={prices}
             />
         </div>
     );
