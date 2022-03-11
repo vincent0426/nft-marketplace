@@ -42,7 +42,7 @@ const App = () => {
             setPrices(prices);
         };
         getData();
-    });
+    }, []);
     return (
         <div>
             {uris[0] ? (
